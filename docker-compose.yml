@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://voltagegpu:password@postgres:5432/voltagegpu
+      - REDIS_URL=redis://redis:6379/0
+      - BACKEND_API_URL=https://api.celiumcompute.ai/v1
+      - BACKEND_API_KEY=${BACKEND_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - PRICING_MARKUP=1.25
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - voltagegpu-network
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=voltagegpu
+      - POSTGRES_USER=voltagegpu
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - voltagegpu-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - voltagegpu-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - voltagegpu-network
+
+volumes:
+  postgres_data:
+
+networks:
+  voltagegpu-network:
+    driver: bridge
